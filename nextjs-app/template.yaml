@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion : '2010-09-09'
+
+Parameters:
+  Project:
+    Type: String
+    Default: 'webapp'
+  KeyName:
+    Type: String
+    Default: mauri2020
+  WebServerSG:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/SecurityGroups/WebServer'
+  PublicSubnet1:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/Subnets/PublicSubnet1'
+  PublicSubnet2:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/Subnets/PublicSubnet2'
+  PublicSubnet3:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/Subnets/PublicSubnet3'
+  VPC:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/VPC/Id'
+Mappings: 
+  RegionMap: 
+    us-east-1:
+      ami: ami-08f3d892de259504d
+    us-east-2:
+      ami: ami-0bdcc6c05dec346bf
+    us-west-1:
+      ami: ami-01311df3780ebd33e
+    us-west-2:
+      ami: ami-0b1e2eeb33ce3d66f
+  # add more regions if need it
+
+Resources:
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties: 
+      LaunchTemplateName: !Join [ "-", [ !Ref Project, "template" ] ]
+      LaunchTemplateData:
+        ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", ami]
+        InstanceType: t2.micro
+        KeyName: !Ref KeyName
+        SecurityGroupIds:
+          - !Ref WebServerSG
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash -x
+            exec > /tmp/part-001.log 2>&1
+            sudo yum update -y
+            sudo yum install git -y
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            . ~/.nvm/nvm.sh
+            nvm install node
+            git clone https://github.com/mauri1789/example-nextjs.git
+            sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 3000
+            cd example-nextjs
+            npm install
+            npm run build
+            npm run start &
+            
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: !Join [ "-", [ !Ref Project, "elb" ] ]
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref WebServerSG
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+        - !Ref PublicSubnet3
+      Type: application
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: LoadBalancer
+    Properties:
+      Name: !Join [ "-", [ !Ref Project, "tg" ] ]
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VPC
+
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Join [ "-", [ !Ref Project, "asg" ] ]
+      MaxSize: 6
+      MinSize: 2
+      DesiredCapacity: 3
+      AvailabilityZones:
+        - !Join [ "", [ !Ref "AWS::Region", "a" ] ]
+        - !Join [ "", [ !Ref "AWS::Region", "b" ] ]
+        - !Join [ "", [ !Ref "AWS::Region", "c" ] ]
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+        - !Ref PublicSubnet3
+      TargetGroupARNs:
+        - !Ref TargetGroup

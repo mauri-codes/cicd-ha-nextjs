@@ -4,9 +4,6 @@ Parameters:
   Project:
     Type: String
     Default: 'webapp'
-  Region:
-    Type: String
-    Default: 'us-east-2'
 
 Resources:
   VPC:
@@ -21,7 +18,7 @@ Resources:
   PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties: 
-      AvailabilityZone: !Join [ "", [ !Ref Region, "a" ] ]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", "a" ] ]
       CidrBlock: 10.0.0.0/24
       MapPublicIpOnLaunch: True
       VpcId: !Ref VPC
@@ -32,7 +29,7 @@ Resources:
   PublicSubnet2:
     Type: AWS::EC2::Subnet
     Properties: 
-      AvailabilityZone: !Join [ "", [ !Ref Region, "b" ] ]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", "b" ] ]
       CidrBlock: 10.0.1.0/24
       MapPublicIpOnLaunch: True
       VpcId: !Ref VPC
@@ -43,7 +40,7 @@ Resources:
   PublicSubnet3:
     Type: AWS::EC2::Subnet
     Properties: 
-      AvailabilityZone: !Join [ "", [ !Ref Region, "c" ] ]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", "c" ] ]
       CidrBlock: 10.0.2.0/24
       MapPublicIpOnLaunch: True
       VpcId: !Ref VPC
@@ -113,3 +110,38 @@ Resources:
           ToPort: 80
           CidrIp: 0.0.0.0/0
       VpcId: !Ref VPC
+
+  WebServerSGParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: '/SecurityGroups/WebServer'
+      Type: String
+      Value: !Ref WebServerSecurityGroup
+      
+  PublicSubnet1Param:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: '/Subnets/PublicSubnet1'
+      Type: String
+      Value: !Ref PublicSubnet1
+
+  PublicSubnet2Param:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: '/Subnets/PublicSubnet2'
+      Type: String
+      Value: !Ref PublicSubnet2
+
+  PublicSubnet3Param:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: '/Subnets/PublicSubnet3'
+      Type: String
+      Value: !Ref PublicSubnet3
+
+  VPCParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: '/VPC/Id'
+      Type: String
+      Value: !Ref VPC
