@@ -7,9 +7,6 @@ Parameters:
   KeyName:
     Type: String
     Default: mauri2020
-  WebServerSG:
-    Type: 'AWS::SSM::Parameter::Value<String>'
-    Default: '/SecurityGroups/WebServer'
   PublicSubnet1:
     Type: 'AWS::SSM::Parameter::Value<String>'
     Default: '/Subnets/PublicSubnet1'
@@ -35,6 +32,36 @@ Mappings:
   # add more regions if need it
 
 Resources:
+  LoadBalancerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: LoadBalancer Security Group
+      GroupName: !Join [ "-", [ !Ref Project, "lb-sg" ] ]
+      SecurityGroupEgress: 
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref VPC
+
+  WebServerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: Used for webservers
+      GroupName: !Join [ "-", [ !Ref Project, "web-server-sg" ] ]
+      SecurityGroupEgress: 
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref LoadBalancerSG
+      VpcId: !Ref VPC
+
   LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties: 
@@ -70,7 +97,7 @@ Resources:
       Name: !Join [ "-", [ !Ref Project, "elb" ] ]
       Scheme: internet-facing
       SecurityGroups:
-        - !Ref WebServerSG
+        - !Ref LoadBalancerSG
       Subnets:
         - !Ref PublicSubnet1
         - !Ref PublicSubnet2
@@ -116,3 +143,8 @@ Resources:
         - !Ref PublicSubnet3
       TargetGroupARNs:
         - !Ref TargetGroup
+
+Outputs:
+  ApplicationEndpoint:
+    Description: Application Endpoint
+    Value: !GetAtt LoadBalancer.DNSName
