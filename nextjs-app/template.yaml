@@ -127,9 +127,9 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       AutoScalingGroupName: !Join [ "-", [ !Ref Project, "asg" ] ]
-      MaxSize: 6
+      MaxSize: 9
       MinSize: 2
-      DesiredCapacity: 3
+      DesiredCapacity: 6
       AvailabilityZones:
         - !Join [ "", [ !Ref "AWS::Region", "a" ] ]
         - !Join [ "", [ !Ref "AWS::Region", "b" ] ]
