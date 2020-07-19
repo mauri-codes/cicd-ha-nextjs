@@ -4,9 +4,15 @@ Parameters:
   Project:
     Type: String
     Default: 'webapp'
-  KeyName:
+  EC2KeyName:
     Type: String
     Default: mauri2020
+  DeploymentBucket:
+    Type: String
+    Default: maudeployments
+  DeploymentS3Key:
+    Type: String
+    Default: "codedeploy/app.zip"
   PublicSubnet1:
     Type: 'AWS::SSM::Parameter::Value<String>'
     Default: '/Subnets/PublicSubnet1'
@@ -60,7 +66,46 @@ Resources:
           FromPort: 80
           ToPort: 80
           SourceSecurityGroupId: !Ref LoadBalancerSG
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
       VpcId: !Ref VPC
+
+  InstanceProfileRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join [ "-", [ !Ref Project, "instance-profile-role",  !Ref "AWS::Region"] ]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      Policies:
+        - PolicyName: codedeploy-instance-access-to-s3
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:Get*
+                  - s3:List*
+                Resource:
+                  - "arn:aws:s3:::maudeployments/*"
+                  - "arn:aws:s3:::aws-codedeploy-us-east-2/*"
+                  - "arn:aws:s3:::aws-codedeploy-us-east-1/*"
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      Roles: 
+        - !Ref InstanceProfileRole
 
   LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
@@ -68,8 +113,10 @@ Resources:
       LaunchTemplateName: !Join [ "-", [ !Ref Project, "template" ] ]
       LaunchTemplateData:
         ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", ami]
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn
         InstanceType: t2.micro
-        KeyName: !Ref KeyName
+        KeyName: !Ref EC2KeyName
         SecurityGroupIds:
           - !Ref WebServerSG
         UserData:
@@ -77,6 +124,14 @@ Resources:
             #!/bin/bash -x
             exec > /tmp/part-001.log 2>&1
             sudo yum update -y
+            ### CODEDEPLOY
+            sudo yum install ruby
+            sudo yum install wget
+            cd /home/ec2-user
+            wget https://aws-codedeploy-us-east-2.s3.us-east-2.amazonaws.com/latest/install
+            chmod +x ./install
+            sudo ./install auto
+            ### APPLICATION
             sudo yum install git -y
             curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
             export NVM_DIR="$HOME/.nvm"
@@ -112,6 +167,11 @@ Resources:
       Port: 80
       Protocol: HTTP
       VpcId: !Ref VPC
+      HealthCheckIntervalSeconds: 30
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 60
+          
 
   LoadBalancerListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -127,9 +187,9 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       AutoScalingGroupName: !Join [ "-", [ !Ref Project, "asg" ] ]
-      MaxSize: 9
+      MaxSize: 6
       MinSize: 2
-      DesiredCapacity: 6
+      DesiredCapacity: 3
       AvailabilityZones:
         - !Join [ "", [ !Ref "AWS::Region", "a" ] ]
         - !Join [ "", [ !Ref "AWS::Region", "b" ] ]
@@ -143,6 +203,61 @@ Resources:
         - !Ref PublicSubnet3
       TargetGroupARNs:
         - !Ref TargetGroup
+
+  CodeDeployServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join [ "-", [ !Ref Project, "codedeploy-role",  !Ref "AWS::Region"] ]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - codedeploy.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+      Policies:
+        - PolicyName: codedeploy-service-role-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:RunInstances
+                  - ec2:CreateTags
+                  - iam:PassRole
+                Resource: '*'
+
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: !Join [ "-", [ !Ref Project, "codedploy-app" ] ]
+      ComputePlatform: Server
+
+  DeploymentGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Properties:
+      ApplicationName: !Ref CodeDeployApplication
+      DeploymentConfigName: CodeDeployDefault.AllAtOnce
+      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
+      AutoScalingGroups:
+        - !Ref AutoScalingGroup
+      DeploymentStyle:
+        DeploymentOption: WITH_TRAFFIC_CONTROL
+        DeploymentType: IN_PLACE
+      LoadBalancerInfo:
+        TargetGroupInfoList:
+          - Name: !GetAtt TargetGroup.TargetGroupName
+      Deployment:
+        Revision:
+          RevisionType: S3
+          S3Location:
+            Bucket: !Ref DeploymentBucket
+            BundleType: zip
+            Key: !Ref DeploymentS3Key
 
 Outputs:
   ApplicationEndpoint:
