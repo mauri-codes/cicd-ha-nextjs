@@ -1,26 +1,26 @@
 version: 0.0
 os: linux
 files:
-  - source: "/"
-    destination: "/tmp"
+  - source: "/nextjs-app"
+    destination: "/home/ec2-user/nextjs-app"
 hooks:
   ApplicationStop:
     - location: codedeployScripts/app_stop.sh 
-      timeout: 300
+      timeout: 30
       runas: root
   BeforeInstall:
     - location: codedeployScripts/before_install.sh 
-      timeout: 300
+      timeout: 30
       runas: root
   AfterInstall:
     - location: codedeployScripts/after_install.sh 
-      timeout: 300
+      timeout: 30
       runas: root
   ApplicationStart:
     - location: codedeployScripts/app_start.sh 
-      timeout: 300
+      timeout: 600
       runas: root
   ValidateService:
     - location: codedeployScripts/validate_service.sh 
-      timeout: 300
+      timeout: 30
       runas: root

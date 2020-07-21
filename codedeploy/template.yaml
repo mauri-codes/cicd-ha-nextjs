@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion : '2010-09-09'
+
+Parameters:
+  Project:
+    Type: String
+    Default: 'webapp'
+  EC2KeyName:
+    Type: String
+    Default: mauri2020
+  DeploymentBucket:
+    Type: String
+    Default: maudeployments
+  DeploymentS3Key:
+    Type: String
+    Default: "codedeploy/app.zip"
+  PublicSubnet1:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/Subnets/PublicSubnet1'
+  PublicSubnet2:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/Subnets/PublicSubnet2'
+  PublicSubnet3:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/Subnets/PublicSubnet3'
+  VPC:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/VPC/Id'
+  AutoScalingGroup:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/WebAppDeployment/AutoScalingGroup'
+  TargetGroupName:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/WebAppDeployment/TargetGroupName'
+
+Resources:
+  CodeDeployServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join [ "-", [ !Ref Project, "codedeploy-role",  !Ref "AWS::Region"] ]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - codedeploy.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+      Policies:
+        - PolicyName: codedeploy-service-role-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:RunInstances
+                  - ec2:CreateTags
+                  - iam:PassRole
+                Resource: '*'
+
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: !Join [ "-", [ !Ref Project, "codedploy-app" ] ]
+      ComputePlatform: Server
+
+  DeploymentGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Properties:
+      ApplicationName: !Ref CodeDeployApplication
+      DeploymentConfigName: CodeDeployDefault.AllAtOnce
+      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
+      AutoScalingGroups:
+        - !Ref AutoScalingGroup
+      DeploymentStyle:
+        DeploymentOption: WITH_TRAFFIC_CONTROL
+        DeploymentType: IN_PLACE
+      LoadBalancerInfo:
+        TargetGroupInfoList:
+          - Name: !Ref TargetGroupName
+      Deployment:
+        Revision:
+          RevisionType: S3
+          S3Location:
+            Bucket: !Ref DeploymentBucket
+            BundleType: zip
+            Key: !Ref DeploymentS3Key

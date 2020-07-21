@@ -132,18 +132,7 @@ Resources:
             chmod +x ./install
             sudo ./install auto
             ### APPLICATION
-            sudo yum install git -y
-            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            . ~/.nvm/nvm.sh
-            nvm install node
-            git clone https://github.com/mauri1789/example-nextjs.git
             sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 3000
-            cd example-nextjs
-            npm install
-            npm run build
-            npm run start &
             
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -204,60 +193,19 @@ Resources:
       TargetGroupARNs:
         - !Ref TargetGroup
 
-  CodeDeployServiceRole:
-    Type: 'AWS::IAM::Role'
+  AutoScalingGroupParam:
+    Type: AWS::SSM::Parameter
     Properties:
-      RoleName: !Join [ "-", [ !Ref Project, "codedeploy-role",  !Ref "AWS::Region"] ]
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-              - codedeploy.amazonaws.com
-            Action:
-              - 'sts:AssumeRole'
-      ManagedPolicyArns:
-        - "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
-      Policies:
-        - PolicyName: codedeploy-service-role-policy
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ec2:RunInstances
-                  - ec2:CreateTags
-                  - iam:PassRole
-                Resource: '*'
+      Name: '/WebAppDeployment/AutoScalingGroup'
+      Type: String
+      Value: !Ref AutoScalingGroup
 
-  CodeDeployApplication:
-    Type: AWS::CodeDeploy::Application
+  TargetGroupNameParam:
+    Type: AWS::SSM::Parameter
     Properties:
-      ApplicationName: !Join [ "-", [ !Ref Project, "codedploy-app" ] ]
-      ComputePlatform: Server
-
-  DeploymentGroup:
-    Type: AWS::CodeDeploy::DeploymentGroup
-    Properties:
-      ApplicationName: !Ref CodeDeployApplication
-      DeploymentConfigName: CodeDeployDefault.AllAtOnce
-      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
-      AutoScalingGroups:
-        - !Ref AutoScalingGroup
-      DeploymentStyle:
-        DeploymentOption: WITH_TRAFFIC_CONTROL
-        DeploymentType: IN_PLACE
-      LoadBalancerInfo:
-        TargetGroupInfoList:
-          - Name: !GetAtt TargetGroup.TargetGroupName
-      Deployment:
-        Revision:
-          RevisionType: S3
-          S3Location:
-            Bucket: !Ref DeploymentBucket
-            BundleType: zip
-            Key: !Ref DeploymentS3Key
+      Name: '/WebAppDeployment/TargetGroupName'
+      Type: String
+      Value: !GetAtt TargetGroup.TargetGroupName
 
 Outputs:
   ApplicationEndpoint:
