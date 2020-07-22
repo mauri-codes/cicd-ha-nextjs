@@ -231,4 +231,17 @@ Resources:
                 RoleArn: !GetAtt CloudFormationPipelineRole.Arn
                 Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
                 TemplatePath: !Join [ "", [ "SourceArtifact::", !Ref CodeDeployTemplate,  "/template.yaml"] ]
-
+        - Name: cluster_deployment
+          Actions:
+            - Name: cluster
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Deploy
+                Provider: CodeDeploy
+                Owner: AWS
+                Version: 1
+              Configuration:
+                ApplicationName: !Join [ "-", [ !Ref Project, "codedeploy-app" ] ]
+                DeploymentGroupName:  !Join [ "-", [ !Ref Project, "deployment-group" ] ]
+                PollForSourceChanges : false

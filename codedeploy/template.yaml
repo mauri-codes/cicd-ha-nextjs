@@ -63,12 +63,13 @@ Resources:
   CodeDeployApplication:
     Type: AWS::CodeDeploy::Application
     Properties:
-      ApplicationName: !Join [ "-", [ !Ref Project, "codedploy-app" ] ]
+      ApplicationName: !Join [ "-", [ !Ref Project, "codedeploy-app" ] ]
       ComputePlatform: Server
 
   DeploymentGroup:
     Type: AWS::CodeDeploy::DeploymentGroup
     Properties:
+      DeploymentGroupName: !Join [ "-", [ !Ref Project, "deployment-group" ] ]
       ApplicationName: !Ref CodeDeployApplication
       DeploymentConfigName: CodeDeployDefault.AllAtOnce
       ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
@@ -87,3 +88,10 @@ Resources:
             Bucket: !Ref DeploymentBucket
             BundleType: zip
             Key: !Ref DeploymentS3Key
+
+  ApplicationNameParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: '/CodeDeploy/ApplicationName'
+      Type: String
+      Value: !GetAtt TargetGroup.TargetGroupName
