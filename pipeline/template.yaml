@@ -212,55 +212,38 @@ Resources:
                 Version: 1
               Configuration:
                 ActionMode: CREATE_UPDATE
-                StackName: "my-stack"
+                StackName: !Ref WebAppTemplate
                 RoleArn: !GetAtt CloudFormationPipelineRole.Arn
                 Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-                TemplatePath: !Join [ "", [ "SourceArtifact::", "dummy",  "/template.yaml"] ]
-        # - Name: infrastructure_deployment
-        #   Actions:
-        #     - Name: app
-        #       RunOrder: 1
-        #       InputArtifacts:
-        #         - Name: SourceArtifact
-        #       ActionTypeId:
-        #         Category: Deploy
-        #         Provider: CloudFormation
-        #         Owner: AWS
-        #         Version: 1
-        #       Configuration:
-        #         ActionMode: CREATE_UPDATE
-        #         StackName: !Ref WebAppTemplate
-        #         RoleArn: !GetAtt CloudFormationPipelineRole.Arn
-        #         Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-        #         TemplatePath: !Join [ "", [ "SourceArtifact::", !Ref WebAppTemplate,  "/template.yaml"] ]
-        #     - Name: codedeploy
-        #       RunOrder: 2
-        #       InputArtifacts:
-        #         - Name: SourceArtifact
-        #       ActionTypeId:
-        #         Category: Deploy
-        #         Provider: CloudFormation
-        #         Owner: AWS
-        #         Version: 1
-        #       Configuration:
-        #         ActionMode: CREATE_UPDATE
-        #         StackName: !Ref CodeDeployTemplate
-        #         RoleArn: !GetAtt CloudFormationPipelineRole.Arn
-        #         Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-        #         TemplatePath: !Join [ "", [ "SourceArtifact::", !Ref CodeDeployTemplate,  "/template.yaml"] ]
-        # - Name: cluster_deployment
-        #   Actions:
-        #     - Name: cluster
-        #       InputArtifacts:
-        #         - Name: SourceArtifact
-        #       ActionTypeId:
-        #         Category: Deploy
-        #         Provider: CodeDeploy
-        #         Owner: AWS
-        #         Version: 1
-        #       Configuration:
-        #         ApplicationName: !Join [ "-", [ !Ref Project, "codedeploy-app" ] ]
-        #         DeploymentGroupName:  !Join [ "-", [ !Ref Project, "deployment-group" ] ]
+                TemplatePath: !Join [ "", [ "SourceArtifact::", !Ref WebAppTemplate,  "/template.yaml"] ]
+            - Name: codedeploy
+              RunOrder: 2
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Deploy
+                Provider: CloudFormation
+                Owner: AWS
+                Version: 1
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                StackName: !Ref CodeDeployTemplate
+                RoleArn: !GetAtt CloudFormationPipelineRole.Arn
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                TemplatePath: !Join [ "", [ "SourceArtifact::", !Ref CodeDeployTemplate,  "/template.yaml"] ]
+        - Name: cluster_deployment
+          Actions:
+            - Name: cluster
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Deploy
+                Provider: CodeDeploy
+                Owner: AWS
+                Version: 1
+              Configuration:
+                ApplicationName: !Join [ "-", [ !Ref Project, "codedeploy-app" ] ]
+                DeploymentGroupName:  !Join [ "-", [ !Ref Project, "deployment-group" ] ]
 
   Webhook: 
     Type: AWS::CodePipeline::Webhook

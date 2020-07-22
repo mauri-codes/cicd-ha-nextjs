@@ -1,5 +1,0 @@
-Resources:
-  S3Bucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: my-amazin-bucket-2020-ec2
