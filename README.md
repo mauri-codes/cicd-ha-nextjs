@@ -7,6 +7,8 @@ An autoscaling group behind a load balancer in 3 different availability zones.
 
 The CodeDeploy agent is installed in every instance, and makes sure the instances are configured according to the Deployment Group that was created.
 
+![infrastructure](https://user-images.githubusercontent.com/16513413/88126482-98adff80-cb9f-11ea-97a7-f2ae428690e3.jpeg)
+
 ## CodePipeline
 
 CodePipeline has 3 stages
@@ -21,7 +23,9 @@ You'll need to have a Secrets Manager Secret called github-pipeline with the fol
 - branch
 - token
 
-Then deploy the network first
+You need an s3 bucket for the deployments, it should be already created and you can replace it in the params section of the templates
+
+Deploy the network first
 ```
 ./deploy.sh -p network -d
 ```
