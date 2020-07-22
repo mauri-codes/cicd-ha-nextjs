@@ -1,0 +1,234 @@
+AWSTemplateFormatVersion : '2010-09-09'
+
+Parameters:
+  Project:
+    Type: String
+    Default: 'webapp'
+  DeploymentBucket:
+    Type: String
+    Default: maudeployments
+  WebAppTemplate:
+    Type: String
+    Default: nextjs-app #same as folder with the app code
+  CodeDeployTemplate:
+    Type: String
+    Default: codedeploy #same as folder with codedeploy template
+
+Resources:
+  CodePipelineServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join [ "-", [ !Ref Project, "codepipeline-role",  !Ref "AWS::Region"] ]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - codepipeline.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: codedeploy-service-role-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                - iam:PassRole
+                Resource: "*"
+                Effect: Allow
+                Condition:
+                  StringEqualsIfExists:
+                    iam:PassedToService:
+                      - cloudformation.amazonaws.com
+                      - elasticbeanstalk.amazonaws.com
+                      - ec2.amazonaws.com
+                      - ecs-tasks.amazonaws.com
+              - Action:
+                  - codecommit:CancelUploadArchive
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:UploadArchive
+                Resource: "*"
+                Effect: Allow
+              - Action:
+                  - codedeploy:CreateDeployment
+                  - codedeploy:GetApplication
+                  - codedeploy:GetApplicationRevision
+                  - codedeploy:GetDeployment
+                  - codedeploy:GetDeploymentConfig
+                  - codedeploy:RegisterApplicationRevision
+                Resource: "*"
+                Effect: Allow
+              - Action:
+                  - codestar-connections:UseConnection
+                Resource: "*"
+                Effect: Allow
+              - Action:
+                  - elasticbeanstalk:*
+                  - ec2:*
+                  - elasticloadbalancing:*
+                  - autoscaling:*
+                  - cloudwatch:*
+                  - s3:*
+                  - sns:*
+                  - cloudformation:*
+                  - rds:*
+                  - sqs:*
+                  - ecs:*
+                Resource: "*"
+                Effect: Allow
+              - Action:
+                  - lambda:InvokeFunction
+                  - lambda:ListFunctions
+                Resource: "*"
+                Effect: Allow
+              - Action:
+                  - opsworks:CreateDeployment
+                  - opsworks:DescribeApps
+                  - opsworks:DescribeCommands
+                  - opsworks:DescribeDeployments
+                  - opsworks:DescribeInstances
+                  - opsworks:DescribeStacks
+                  - opsworks:UpdateApp
+                  - opsworks:UpdateStack
+                Resource: "*"
+                Effect: Allow
+              - Action:
+                  - cloudformation:CreateStack
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStacks
+                  - cloudformation:UpdateStack
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:SetStackPolicy
+                  - cloudformation:ValidateTemplate
+                Resource: "*"
+                Effect: Allow
+              - Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                Resource: "*"
+                Effect: Allow
+              - Effect: Allow
+                Action:
+                  - devicefarm:ListProjects
+                  - devicefarm:ListDevicePools
+                  - devicefarm:GetRun
+                  - devicefarm:GetUpload
+                  - devicefarm:CreateUpload
+                  - devicefarm:ScheduleRun
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - servicecatalog:ListProvisioningArtifacts
+                  - servicecatalog:CreateProvisioningArtifact
+                  - servicecatalog:DescribeProvisioningArtifact
+                  - servicecatalog:DeleteProvisioningArtifact
+                  - servicecatalog:UpdateProduct
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - cloudformation:ValidateTemplate
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:DescribeImages
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - states:DescribeExecution
+                  - states:DescribeStateMachine
+                  - states:StartExecution
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - appconfig:StartDeployment
+                  - appconfig:StopDeployment
+                  - appconfig:GetDeployment
+                Resource: "*"
+                
+  CloudFormationPipelineRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join [ "-", [ !Ref Project, "cf-pipeline-role",  !Ref "AWS::Region"] ]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - cloudformation.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
+        - "arn:aws:iam::aws:policy/IAMFullAccess"
+        - "arn:aws:iam::aws:policy/AutoScalingFullAccess"
+        - "arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        - "arn:aws:iam::aws:policy/AWSCloudFormationFullAccess"
+        - "arn:aws:iam::aws:policy/AWSCodeDeployFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonSSMFullAccess"
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Ref Project
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      ArtifactStore:
+        Location: !Ref DeploymentBucket
+        Type: S3
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: app_deployment
+              OutputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Source
+                Provider: GitHub
+                Owner: ThirdParty
+                Version: 1
+              Configuration:
+                Owner: "{{resolve:secretsmanager:github-pipeline:SecretString:owner}}"
+                Repo: "{{resolve:secretsmanager:github-pipeline:SecretString:repo}}"
+                Branch: "{{resolve:secretsmanager:github-pipeline:SecretString:branch}}"
+                PollForSourceChanges : false
+                OAuthToken: "{{resolve:secretsmanager:github-pipeline:SecretString:token}}"
+        - Name: infrastructure_deployment
+          Actions:
+            - Name: app
+              RunOrder: 1
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Deploy
+                Provider: CloudFormation
+                Owner: AWS
+                Version: 1
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                StackName: !Ref WebAppTemplate
+                RoleArn: !GetAtt CloudFormationPipelineRole.Arn
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                TemplatePath: !Join [ "", [ "SourceArtifact::", !Ref WebAppTemplate,  "/template.yaml"] ]
+            - Name: codedeploy
+              RunOrder: 2
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Deploy
+                Provider: CloudFormation
+                Owner: AWS
+                Version: 1
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                StackName: !Ref CodeDeployTemplate
+                RoleArn: !GetAtt CloudFormationPipelineRole.Arn
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                TemplatePath: !Join [ "", [ "SourceArtifact::", !Ref CodeDeployTemplate,  "/template.yaml"] ]
+
