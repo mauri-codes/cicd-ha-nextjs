@@ -216,23 +216,23 @@ Resources:
                 RoleArn: !GetAtt CloudFormationPipelineRole.Arn
                 Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
                 TemplatePath: !Join [ "", [ "SourceArtifact::", "dummy",  "/template.yaml"] ]
-        - Name: infrastructure_deployment
-          Actions:
-            - Name: app
-              RunOrder: 1
-              InputArtifacts:
-                - Name: SourceArtifact
-              ActionTypeId:
-                Category: Deploy
-                Provider: CloudFormation
-                Owner: AWS
-                Version: 1
-              Configuration:
-                ActionMode: CREATE_UPDATE
-                StackName: !Ref WebAppTemplate
-                RoleArn: !GetAtt CloudFormationPipelineRole.Arn
-                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-                TemplatePath: !Join [ "", [ "SourceArtifact::", !Ref WebAppTemplate,  "/template.yaml"] ]
+        # - Name: infrastructure_deployment
+        #   Actions:
+        #     - Name: app
+        #       RunOrder: 1
+        #       InputArtifacts:
+        #         - Name: SourceArtifact
+        #       ActionTypeId:
+        #         Category: Deploy
+        #         Provider: CloudFormation
+        #         Owner: AWS
+        #         Version: 1
+        #       Configuration:
+        #         ActionMode: CREATE_UPDATE
+        #         StackName: !Ref WebAppTemplate
+        #         RoleArn: !GetAtt CloudFormationPipelineRole.Arn
+        #         Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+        #         TemplatePath: !Join [ "", [ "SourceArtifact::", !Ref WebAppTemplate,  "/template.yaml"] ]
         #     - Name: codedeploy
         #       RunOrder: 2
         #       InputArtifacts:
@@ -263,17 +263,15 @@ Resources:
         #         DeploymentGroupName:  !Join [ "-", [ !Ref Project, "deployment-group" ] ]
 
   Webhook: 
-    Type: 'AWS::CodePipeline::Webhook' 
+    Type: AWS::CodePipeline::Webhook
     Properties:
-      Authentication: UNAUTHENTICATED 
+      Authentication: GITHUB_HMAC 
       TargetPipeline: !Ref Pipeline
       AuthenticationConfiguration:
-        AllowedIPRange: ""
-        SecretToken: ""
+        SecretToken: "{{resolve:secretsmanager:github-pipeline:SecretString:token}}"
       Filters: 
       - JsonPath: "$.ref" 
         MatchEquals: refs/heads/{Branch} 
       TargetAction: Source 
       Name: MyWebhook 
       TargetPipelineVersion: !GetAtt Pipeline.Version
-      # RegisterWithThirdParty: 'true'
