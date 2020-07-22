@@ -244,4 +244,3 @@ Resources:
               Configuration:
                 ApplicationName: !Join [ "-", [ !Ref Project, "codedeploy-app" ] ]
                 DeploymentGroupName:  !Join [ "-", [ !Ref Project, "deployment-group" ] ]
-                PollForSourceChanges : false

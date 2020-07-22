@@ -88,10 +88,3 @@ Resources:
             Bucket: !Ref DeploymentBucket
             BundleType: zip
             Key: !Ref DeploymentS3Key
-
-  ApplicationNameParam:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: '/CodeDeploy/ApplicationName'
-      Type: String
-      Value: !GetAtt TargetGroup.TargetGroupName
