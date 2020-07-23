@@ -12,9 +12,9 @@ The CodeDeploy agent is installed in every instance, and makes sure the instance
 ## CodePipeline
 
 CodePipeline has 3 stages
-**1. Source Stage**, which is linked to a github account, repo and branch
-**2. Infrastructure Deployment**, that deploys the templates in nextjs-app (the autoscaling group and load balancer) and codedeploy (the codedeploy bit)
-**3. Cluster Deployment**, which will redeploy the instances with the newest version of the UI application inside nextjs-app
+1. **Source Stage**, which is linked to a github account, repo and branch
+2. **Infrastructure Deployment**, that deploys the templates in nextjs-app (the autoscaling group and load balancer) and codedeploy (the codedeploy bit)
+3. **Cluster Deployment**, which will redeploy the instances with the newest version of the UI application inside nextjs-app
 
 ![Pipeline](https://user-images.githubusercontent.com/16513413/88241682-d6229380-cc58-11ea-95ab-0c6b9b8549cb.jpeg)
 
